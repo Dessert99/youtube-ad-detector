@@ -2,9 +2,28 @@
   "project": "youtube-ad-detector",
   "phase": "mvp",
   "steps": [
-    { "step": 1, "name": "shared-analyze", "status": "pending" },
-    { "step": 2, "name": "extension-transcript", "status": "pending" },
-    { "step": 3, "name": "extension-rewire", "status": "pending" },
-    { "step": 4, "name": "web-report-stub", "status": "pending" }
+    {
+      "step": 1,
+      "name": "shared-analyze",
+      "status": "completed",
+      "started_at": "2026-04-17T06:17:50.792Z",
+      "summary": "types.ts를 AnalyzeResult/Verdict 중심으로 재정렬(legacy 3종 제거), rules.ts RULE_VERSION 0.1.0 bump + 5개 카테고리에 걸쳐 13개 seed 룰 수록, analyze.ts 신설(순수함수, 3-zone→2-state). tsc --noEmit과 lint 모두 통과.",
+      "completed_at": "2026-04-17T06:20:36.982Z"
+    },
+    {
+      "step": 2,
+      "name": "extension-transcript",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "extension-rewire",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "web-report-stub",
+      "status": "pending"
+    }
   ]
 }
