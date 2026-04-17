@@ -1,0 +1,22 @@
+{
+  "name": "youtube-ad-detector",
+  "private": true,
+  "version": "0.0.1",
+  "description": "YouTube 허위·과장 광고 의심신호 탐지 (rule-based MVP)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @yad/web",
+    "dev:extension": "npm run dev -w @yad/extension",
+    "build:web": "npm run build -w @yad/web",
+    "build:extension": "npm run build -w @yad/extension",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}
