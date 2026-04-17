@@ -29,7 +29,10 @@
     {
       "step": 4,
       "name": "monorepo-react-align",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-04-17T07:59:20.501Z",
+      "summary": "apps/extension/package.json을 React 19 + plasmo 0.90.5로 정렬, apps/web/.eslintrc.json을 next/core-web-vitals extends로 신규 생성. AC 5건 모두 통과: npm install, plasmo build(@yad/extension, 860ms), next lint(@yad/web, 0 warnings/errors), apps/web/node_modules/react@19.2.5, apps/extension/node_modules/react@19.2.5. 루트 호이스트 react는 plasmo transitive(@plasmohq/consolidate)의 peer 요구로 18.3.1이나, step 본문 명시대로 워크스페이스별 nested 사본이 19.x면 충분.",
+      "completed_at": "2026-04-17T08:00:05.878Z"
     },
     {
       "step": 5,
