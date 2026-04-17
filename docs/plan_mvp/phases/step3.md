@@ -23,6 +23,7 @@
 1) **`apps/extension/lib/config.ts`**
    - `ANALYZE_PATH` 상수를 **삭제**한다(서버 엔드포인트가 없어졌으므로).
    - `API_BASE_URL`은 유지 — 보고서 페이지 베이스로 계속 쓴다.
+   - **`process.env` 타입 에러를 해소한다.** 현재 `process.env.PLASMO_PUBLIC_API_BASE_URL` 참조가 `@types/node` 부재로 tsc에서 실패한다. 파일 상단에 `/// <reference types="plasmo/types" />`를 추가하거나, 그 효과가 없으면 `declare const process: { env: Record<string, string | undefined> }`로 지역 선언한다. 이유: step2에서 이월된 잔여 정리이며, step3 AC(`lint` = `tsc --noEmit`)가 통과하려면 필수.
 
 2) **`apps/extension/contents/youtube.ts`** 재작성
    - import:
