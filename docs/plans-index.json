@@ -1,5 +1,5 @@
 {
   "plans": [
-    { "dir": "", "status": "" }
+    { "dir": "plan_mvp2", "status": "pending" }
   ]
 }
