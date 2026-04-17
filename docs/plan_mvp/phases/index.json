@@ -37,7 +37,10 @@
     {
       "step": 5,
       "name": "web-report-stub",
-      "status": "pending"
+      "status": "blocked",
+      "started_at": "2026-04-17T08:00:06.061Z",
+      "blocked_reason": "apps/web/app/ 이하 파일 작업(api/analyze 삭제, [videoId]/page.tsx 삭제, [videoId]/[ruleVersion]/page.tsx 신설)은 완료되었고 `npm run lint -w @yad/web`은 통과하나, `npm run build -w @yad/web`이 prerender 단계에서 React error #31로 실패. 원인은 한 프로세스에 React 2개 공존: 루트 호이스트 `node_modules/react@18.3.1`(plasmo transitive `@plasmohq/consolidate` peer 요구로 step4에서 남겨둔 상태) + `apps/web/node_modules/react@19.2.5`. 해결은 루트 `package.json`에 `overrides: { react: ^19, react-dom: ^19 }` 추가 또는 plasmo 의존성 조정 — 모두 step5 Scope('apps/web/app/ 이하만') 밖이고 step4(monorepo-react-align)가 남긴 이슈. 사용자 결정 대기: (A) Scope 엄수·blocked 유지 → 후속 step 또는 step4 재개, (B) Scope 넘어 루트 overrides로 build 통과, (C) AC 완화(lint만으로 completed).",
+      "blocked_at": "2026-04-17T08:03:58.115Z"
     }
   ]
 }

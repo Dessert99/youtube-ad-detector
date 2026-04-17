@@ -12,10 +12,12 @@
 | 4 | 공유 상태 파일 분리 어려움 | `index.json`, `plans-index.json`에 step N 완료 + step N+1 blocked 상태가 함께 박혀 있음 | 한 파일이 여러 step의 라이프사이클을 누적 기록 → 단일 step 단위로 분리 커밋하려면 수동 surgery 필요 | step 3의 blocked 필드를 pending으로 되돌린 뒤 step 2 chore 커밋에 포함 |
 | 5 | (구) step 4 BLOCK | `next build` 실패 + `next lint` 대화형 프롬프트 | 워크스페이스 React 버전 분열(ext: 18 / web: 19, 루트 호이스트=18) + `apps/web/.eslintrc.json` 부재 | 새 step 4(`monorepo-react-align`) 삽입 — 기존 step 4를 step 5로 밀어냄 |
 | 6 | (신) step 4 BLOCK | `npm run build -w @yad/web` 실패 — `apps/web/app/api/analyze/route.ts`의 deleted 타입 import | AI(나)가 step 4 AC에 web 전체 빌드를 박았는데, 그 빌드가 step 5에서 삭제 예정인 legacy 파일을 컴파일 시도 | step 4 AC에서 web build 제거, React 버전 직접 검증으로 교체 |
+| 7 | (신) step 4 재BLOCK | AC4(`루트 react 버전 == 19.x`) 실패 — 루트가 18.3.1 그대로 | plasmo 0.90.5의 transitive `@plasmohq/consolidate@0.17.0`이 React `^18.2.0`을 strict peer로 요구 → npm이 루트에 18.3.1을 박음. 그러나 **실제 의도("Next.js·plasmo가 사용하는 React가 19")는 이미 충족된 것으로 보였음** — 각 워크스페이스의 nested `node_modules/react`는 19.2.5. AC가 "의도"가 아니라 "의도의 우연한 부산물(루트 호이스트)"을 검증한 게 원인 | AC4를 워크스페이스별 `node_modules/react` 버전 직접 검증으로 교체 ⚠️ **이 수정 자체가 또 다른 프록시 검증이라 BLOCK #8로 이어짐** |
+| 8 | step 5 BLOCK | `next build`의 prerender 단계에서 React error #31 — 한 프로세스에 React 18 + 19 공존 | step 4의 "수정된" AC4가 또 프록시였음. "워크스페이스 nested react가 19면 충분"이라고 가정했으나, Node 모듈 resolution은 **루트로 호이스트된 Next.js의 transitive deps**가 `require('react')`를 호출할 때 루트의 18을 로드. 즉 한 프로세스에 18(루트 경유)과 19(앱 경유)가 동시 적재돼 React가 "두 인스턴스 감지" 에러 발생. **BLOCK #7의 패턴 2-6(프록시 검증)이 한 번 더 반복** | 미해결 — 옵션 검토 중 (루트 overrides가 정공법) |
 
 ---
 
-## 2. 근본 원인 패턴 (반복되는 5가지 결함)
+## 2. 근본 원인 패턴 (반복되는 6가지 결함)
 
 ### 2-1. AC 범위가 Scope를 초과 (4건 중 3건의 BLOCK 원인)
 **현상:** step 2(전체 lint), step 3(전체 build), 신 step 4(web 전체 build) — 모두 AC 커맨드가 step의 Scope보다 더 넓은 영역을 검증.
@@ -36,6 +38,13 @@
 ### 2-5. 도구 위치에 대한 잘못된 가정
 **현상:** AI가 "자동 커밋 = settings.json hook"이라고 단정, `tools/` 폴더의 커스텀 오케스트레이터를 늦게 발견.
 **결과:** 사용자가 "왜 자동 커밋이 안 됐냐"고 묻기까지 잘못된 답변 1회. 신뢰성 손실.
+
+### 2-6. **프록시 검증** — AC가 "진짜 의도"가 아닌 "의도의 우연한 부산물"을 본다 (BLOCK #7, #8 모두)
+**현상 (BLOCK #7):** step 4 AC4가 의도("Next.js·plasmo가 호환 React를 resolve")가 아닌, 그 의도의 일반적 부산물("루트 호이스트가 19.x")을 검증. 가짜 BLOCK으로 잡힘.
+**현상 (BLOCK #8, 더 심각):** BLOCK #7을 "수정"하면서 또 다른 프록시("워크스페이스 nested react가 19면 충분")로 갈아탔다. 그러나 이것도 직접 검증이 아니라 가정. 실제 prerender 시 루트 호이스트된 Next 의존성들이 루트의 18을 로드해 한 프로세스에 React 2개 공존 → 진짜 빌드 실패.
+**결과:** 동일 패턴이 두 번 반복. 두 번째는 더 위험 — "통과 표시"가 났지만 실제로는 깨진 상태.
+**일반화:** "X가 Y를 만족시키는가"를 검증하려면 **Y를 직접 측정**해야 한다. "보통 Y면 Z가 따라오니 Z를 보자"는 모든 우회는 외부 변수(호이스팅·번들러·런타임 로딩 순서)로 깨진다. **유일한 신뢰 가능한 검증은 실제 사용 시나리오를 그대로 실행하는 것** — React 호환성이라면 `next build` 자체가 그 검증.
+**교훈:** legacy 코드가 build 명령을 막는다면(BLOCK #6 상황), 정답은 "build 대신 프록시"가 아니라 "build를 막는 legacy 코드를 step 순서로 먼저 제거"하는 것이었다. AC를 우회하면 안 되고 step 순서로 풀어야 한다.
 
 ---
 
@@ -97,10 +106,61 @@ plan 문서에 "step BLOCK 시 회복 체크리스트"를 박아두기:
 
 ## 5. 메타 회고: AI의 책임 분담
 
-본 문서의 BLOCK 6건 중:
-- **AI 설계 결함**: #1, #6 (각 step의 AC를 내가 너무 넓게 잡음)
+본 문서의 BLOCK 8건 중:
+- **AI 설계 결함 (AC 범위 초과)**: #1, #6 (각 step의 AC를 내가 너무 넓게 잡음)
+- **AI 설계 결함 (프록시 검증)**: #7, #8 (실제 의도 대신 우연한 부산물을 검증; #8은 #7 수정도 또 프록시였다는 더 심각한 사례)
 - **사전 환경 미점검**: #2, #5 (phase 시작 전 인프라 audit 누락 — AI가 plan 단계에서 발견했어야 함)
 - **AI 답변 오류**: #3 (도구 위치 가정으로 잘못된 답변)
 - **공유 상태 설계 한계**: #4 (harness 구조 자체의 트레이드오프 — AI 단독 책임은 아님)
 
-→ **다음 phase 설계 시 가장 먼저 적용할 것: 3-1 (AC 범위) + 3-2 (step 0 인프라 audit).** 이 두 가지가 6건 중 4건을 사전에 막아주었음.
+→ **다음 phase 설계 시 가장 먼저 적용할 것: 3-1 (AC 범위) + 3-2 (step 0 인프라 audit) + 2-6 (프록시 금지).** 이 세 가지가 8건 중 6건을 사전에 막아주었음. 특히 #8은 BLOCK이 발생한 후에도 같은 함정에 두 번째로 빠진 사례 — **"AC 우회는 step 순서 재설계로 풀어야 한다"**는 원칙을 어겼다.
+
+---
+
+## 6. ✅ 다음부터 추가로 설정해야 할 것 — TODO 리스트
+
+> 이 리스트만 보고도 다음 phase를 안전하게 시작할 수 있도록 정리. 위에서 아래로 우선순위.
+
+### 🔴 반드시 해야 할 것 (Phase 시작 전)
+
+- [ ] **`step0.md` 템플릿 만들기** — 모든 phase의 첫 step은 인프라 audit. 다음을 포함:
+  - 워크스페이스 간 공유 의존성(React/TS/Node/번들러) 버전이 정렬됐는가
+  - 각 워크스페이스의 lint/build 도구가 **비대화형**으로 실행되는가 (eslintrc 같은 설정 파일 존재)
+  - 자산 prerequisites(아이콘·env 파일·인증서 등) 누락 없는가
+  - 발견된 결함은 step0 안에서 모두 해결 (다음 step에 떠넘기지 않기)
+
+- [ ] **`AC-guidelines.md` 작성** (`docs/plan_<phase>/`) — AC 작성 시 지켜야 할 규칙:
+  1. **Scope-매칭**: AC가 검증하는 영역 ⊆ Scope가 변경한 영역
+  2. **직접 검증 금지(=프록시 금지)**: "보통 X면 Y가 따라온다"는 우회 검증 금지. 실제 사용 시나리오를 그대로 실행
+  3. **build 명령은 deliverable이 build 산출물일 때만 사용**. 단순 컴파일 가능성은 type-check로
+  4. AC가 막힐 때 우회(완화) 대신 **step 순서를 재설계**해 막힘 자체를 제거할 수 있는지 먼저 검토
+
+- [ ] **각 step.md에 "본 step 이후 일시적으로 깨지는 코드" 섹션 의무화** — 의도적으로 깨진 채 남겨둘 파일을 명시. 그 파일을 컴파일하는 모든 후속 step의 AC 명령은 사용 금지.
+
+### 🟡 해두면 좋은 것 (다음 phase 진행 전)
+
+- [ ] **harness에 `--reset-blocked-step <N>` 옵션 추가** (`tools/harness/src/execute.ts`) — BLOCK 회복 시 phase index의 해당 step 라이프사이클 필드를 자동으로 pending으로 되돌림. 수동 surgery 제거.
+
+- [ ] **harness에 `--dry-run-ac <N>` 옵션 추가** — Claude 호출 없이 step N의 AC 명령만 현재 working tree 상태로 실행. AC 작성 직후 사전 검증용.
+
+- [ ] **`CLAUDE.md`에 도구 위치 점검 룰 추가**:
+  > "X가 설정 안 되어 있다"고 단정하기 전 최소 3곳 점검 — 글로벌 설정 / 프로젝트 설정 / 프로젝트 도구 디렉터리(`tools/`, `scripts/`).
+
+### 🟢 여유 있을 때 (구조 개선)
+
+- [ ] **phase index 분할** — `index.json` 한 파일이 모든 step의 라이프사이클을 누적 기록하는 구조 대신, step별로 `step{N}.state.json`을 두면 step 간 결합 해소. 현재는 BLOCK 회복 시 surgery 필요.
+
+- [ ] **plan 작성 시 step 의존성 그래프 명시** — "step Y의 AC는 step X의 cleanup을 전제로 한다" 같은 의존을 plan 문서 상단에 명시. 잘못된 순서 검출 가능.
+
+- [ ] **step.md에 "AC 직접성 체크리스트" 박스 추가** — 작성자가 자가 점검할 3개 질문:
+  1. 이 AC는 step의 의도를 직접 측정하는가, 아니면 우연한 부산물을 측정하는가?
+  2. AC가 검증하는 코드 영역이 step Scope를 넘지 않는가?
+  3. 실패 시 원인이 본 step 안에서 해결 가능한가?
+
+### 🚨 다시는 하지 말아야 할 안티 패턴
+
+- ❌ AC가 막힌다고 검증을 우회/완화하기 — **순서 재설계**로 풀어라
+- ❌ "보통 X면 Y가 만족된다"는 프록시 검증 — **Y를 직접 측정**하라
+- ❌ Scope보다 넓은 build/lint 명령을 AC에 넣기 — **scope-matched 명령**만
+- ❌ "X가 어디 설정 안 된 듯" 단정 — **3곳 이상 직접 확인** 후 답변
+- ❌ 인프라 결함을 feature step이 떠안기 — **step 0에서 해결**
