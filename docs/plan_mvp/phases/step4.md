@@ -60,11 +60,14 @@
 npm install
 npm run build -w @yad/extension
 npm run lint -w @yad/web
-node -e "const v=require('react/package.json').version; if(!v.startsWith('19')) process.exit(1); console.log('react@'+v)"
+node -e "const v=require('./apps/web/node_modules/react/package.json').version; if(!v.startsWith('19')) process.exit(1); console.log('apps/web react@'+v)"
+node -e "const v=require('./apps/extension/node_modules/react/package.json').version; if(!v.startsWith('19')) process.exit(1); console.log('apps/extension react@'+v)"
 ```
 - `npm install`: 의존성 정렬 성공.
 - `npm run build -w @yad/extension`: plasmo 0.90.5 + React 19 환경에서 확장 빌드 성공.
 - `npm run lint -w @yad/web`: 대화형 프롬프트 없이 즉시 실행되어 통과(에러 0).
-- 마지막 `node -e ...`: 루트에 호이스트된 `react` 버전이 19.x임을 직접 검증. exit 0이면 React 분열 해소.
+- 마지막 두 줄: **각 워크스페이스 옆에 있는 `react`가 19.x임**을 직접 검증. Node 모듈 resolution은 자기 디렉터리 옆 `node_modules`를 먼저 찾으므로, 이 두 사본이 19.x이면 Next.js와 plasmo가 실제로 사용할 React가 19라는 의미. (루트 `node_modules/react`는 plasmo의 transitive vue transformer 용도로 남아있을 수 있으나 사용처가 없어 무관.)
 
 **왜 `npm run build -w @yad/web`을 AC에서 뺐나**: 본 step의 책임은 React 정렬이지 web 전체 빌드 통과가 아니다. 현재 `apps/web/app/api/analyze/route.ts`가 step1에서 삭제된 타입(`AnalyzeRequest`/`AnalyzeResponse`)을 import하고 있어 빌드가 실패하는데, 이 legacy 파일 제거는 step5(`web-report-stub`)의 첫 번째 task다. 따라서 web build의 최종 검증은 step5 AC가 담당한다.
+
+**왜 루트 `react` 버전 검증이 아닌가**: plasmo 0.90.5의 transitive `@plasmohq/consolidate@0.17.0`이 React `^18.2.0` strict peer를 요구해, npm이 루트에 18.3.1을 박는다. 이는 plasmo vue transformer 전용이며 실제 앱 코드 resolution과 무관. 본 step의 의도("Next.js·plasmo가 사용하는 React가 19")를 직접 검증하려면 워크스페이스별 사본을 봐야 한다.
