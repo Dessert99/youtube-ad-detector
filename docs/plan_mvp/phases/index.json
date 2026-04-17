@@ -28,6 +28,11 @@
     },
     {
       "step": 4,
+      "name": "monorepo-react-align",
+      "status": "pending"
+    },
+    {
+      "step": 5,
       "name": "web-report-stub",
       "status": "pending"
     }

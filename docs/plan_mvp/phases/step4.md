@@ -1,57 +1,68 @@
-# step4: web-report-stub
+# step4: monorepo-react-align
 
 ## 목표
-`apps/web`을 "MVP 스텁 보고서 페이지 + 서버 분석 API 제거" 상태로 맞춘다. 보고서 라우트를 `/report/[videoId]/[ruleVersion]/`으로 변경하고, `ruleVersion`이 현재 `RULE_VERSION`과 다르면 404로 처리한다.
+워크스페이스 내 React 버전 분열을 해소한다. `apps/extension`을 React 19로 정렬하고(plasmo 0.90.5 동반 업그레이드), `apps/web`에 비대화형 `next lint` 설정을 추가해 step5(`web-report-stub`)의 AC(`npm run lint -w @yad/web`, `npm run build -w @yad/web`)가 통과 가능한 상태로 만든다.
+
+## 배경 (왜 필요한가)
+- `apps/web/package.json`은 React 19 + Next.js 15를 선언하지만, `apps/extension/package.json`이 React 18을 선언하여 npm workspaces가 루트 `node_modules/react@18.3.1`을 호이스트한다.
+- 그 결과 `next build`가 루트의 React 18을 resolve해 런타임에 **Minified React error #31** 발생, `LayoutProps` 타입(`@types/react@18` vs `@19`)도 충돌.
+- `apps/web/.eslintrc.json` 부재로 `next lint`가 대화형 프롬프트를 띄워 harness 환경에서 hang.
 
 ## 읽어야 할 파일
-- `docs/plan_mvp/ADR.md` (특히 ADR-006 URL 버전, ADR-012 확장 분석, ADR-013 보고서 스텁)
-- `docs/plan_mvp/ARCHITECTURE.md`
-- `apps/web/app/report/[videoId]/page.tsx` (이동·재작성 대상)
-- `apps/web/app/api/analyze/route.ts` (삭제 대상)
-- `apps/web/package.json`, `apps/web/tsconfig.json`, `apps/web/next.config.ts`
-- `packages/shared/src/rules.ts` (`RULE_VERSION` 값)
-- `packages/shared/src/index.ts` (`RULE_VERSION` re-export 확인)
+- `apps/extension/package.json` (React/plasmo 버전 변경 대상)
+- `apps/web/package.json` (React 19/Next 15 선언 확인용, **수정 금지**)
+- `package.json` (루트 — workspaces 구성 확인용, **수정 금지**)
+- `apps/web/next.config.ts` (eslint 설정 위치 참고)
 
 ## Scope
-`apps/web/app/` 이하만. 다른 워크스페이스는 건드리지 않는다.
+다음 2개 파일만 수정/생성한다. 다른 파일은 건드리지 않는다.
+- `apps/extension/package.json` (수정)
+- `apps/web/.eslintrc.json` (신규)
+
+`package-lock.json`과 `node_modules/`는 `npm install` 실행 결과로 자동 갱신되며, 이는 Scope 위반이 아니다.
 
 ## 작업
-1) **`apps/web/app/api/analyze/` 디렉터리 전체 삭제**
-   - `route.ts` 파일과 디렉터리 자체를 제거한다.
-   - 상위 `apps/web/app/api/` 디렉터리가 빈다면 그대로 두어도 된다(포스트-MVP에서 `/api/verify`, `/api/report`가 들어올 자리).
 
-2) **`apps/web/app/report/[videoId]/page.tsx` → `apps/web/app/report/[videoId]/[ruleVersion]/page.tsx`로 이동**
-   - 기존 `[videoId]/page.tsx`는 **삭제**(동일 dynamic 세그먼트 위치에 파일·하위 dynamic 세그먼트 디렉터리를 동시에 두면 충돌 가능성이 있고, ADR-006은 경로를 `[videoId]/[ruleVersion]`로 고정했다).
-   - 새 파일 내용:
-     - import: `notFound` from `next/navigation`, `RULE_VERSION` from `@yad/shared`
-     - 기존의 `buildReport` / `Report` 사용 코드는 **모두 제거**. MVP 스텁은 분석 재실행을 하지 않는다(ADR-013).
-     - 시그니처:
-       ```ts
-       export default async function ReportPage({
-         params,
-       }: {
-         params: Promise<{ videoId: string; ruleVersion: string }>
-       })
-       ```
-     - `const { videoId, ruleVersion } = await params`
-     - `if (ruleVersion !== RULE_VERSION) notFound()`
-     - 렌더: `<main>` 안에 videoId, ruleVersion, "상세 보고서는 추후 제공됩니다." 문구만. 스타일은 기존 page.tsx와 비슷한 수준(간단한 inline style)으로 유지.
+### 1) `apps/extension/package.json` — React 19 + plasmo 0.90.5 정렬
+- `dependencies.react`: `^18.2.0` → `^19.0.0`
+- `dependencies.react-dom`: `^18.2.0` → `^19.0.0`
+- `dependencies.plasmo`: `^0.89.4` → `^0.90.5`
+- `devDependencies.@types/react`: `^18.2.0` → `^19.0.0`
+- `devDependencies.@types/react-dom`: `^18.2.0` → `^19.0.0`
+- 다른 필드(name, manifest, scripts 등)는 손대지 않는다.
+
+### 2) `apps/web/.eslintrc.json` 신규 생성
+다음 내용으로 파일을 만든다:
+```json
+{
+  "extends": "next/core-web-vitals"
+}
+```
+이유: `next lint`가 설정 파일을 발견하면 대화형 프롬프트 없이 즉시 실행된다.
+
+### 3) `npm install` 실행 (루트에서)
+- 루트 디렉터리에서 `npm install`을 실행해 lock 파일과 호이스트된 `node_modules/react`를 19.x로 갱신한다.
+- 실행 후 `node_modules/react/package.json`의 `version`이 `19.x`인지 확인.
 
 ## 불변식 (깨면 안 됨)
-- **보고서 페이지는 findings·자막·법조항을 렌더하지 않는다.** 이유: ADR-013 — MVP 스텁 범위. 이 경계가 흔들리면 LLM·RAG 설계 없이 반쪽짜리 실렌더가 들어간다.
-- **`ruleVersion` 불일치는 `notFound()`(404).** 이유: ADR-006 트레이드오프 — URL 조작으로 존재하지 않는 버전에 접근한 경우 404.
-- **경로는 `/report/[videoId]/[ruleVersion]/`만 존재한다.** 이유: ADR-006.
+- **`apps/web/package.json`은 수정하지 않는다.** 이유: web은 이미 React 19를 올바르게 선언했고, 문제는 extension 측 misalignment에 있다.
+- **루트 `package.json`에 `overrides`를 추가하지 않는다.** 이유: root cause를 가리는 우회책. extension의 실제 버전 정렬이 정공법.
+- **plasmo 메이저 업그레이드(0.89 → 0.90)는 React 19 호환을 위해 필수.** 이유: plasmo 0.89는 React 18을 강제하는 peer dep을 가질 수 있음. 0.90.5는 빌드 출력에서 자체 권장된 최신 버전.
 
 ## 금지사항
-- **`/api/analyze` 또는 `/api/verify`·`/api/report` 같은 새 서버 엔드포인트를 추가 금지.** 이유: ADR-012는 MVP에서 서버 분석 엔드포인트를 모두 제거했다. 포스트-MVP 범위.
-- **`buildReport()` 같은 분석 로직을 서버로 다시 도입 금지.** 이유: ADR-012 — 분석은 확장 단독.
-- **`[videoId]/page.tsx`와 `[videoId]/[ruleVersion]/page.tsx`를 동시에 두지 말 것.** 이유: Next.js App Router에서 동일 위치에 파일과 하위 동적 세그먼트 디렉터리가 공존하면 라우팅이 혼란스럽고, ADR-006이 버전 포함 경로 하나만 허용했다.
-- **`@yad/shared`의 삭제된 타입(`Report`, `AnalyzeResponse` 등)을 import 금지.** 이유: step1에서 제거됨. 남으면 빌드 실패.
+- **`packages/shared`나 `tools/harness` 의존성에 손대지 말 것.** 이유: Scope 외. shared는 React를 import하지 않으므로 영향 없음.
+- **`apps/extension`의 `popup.tsx`/`background.ts`/`contents/*`를 수정 금지.** 이유: Scope는 package.json만. React 19로 올린 후 코드 호환성 문제가 생기면 별도 step에서 처리.
+- **`apps/web/eslint.config.mjs` 같은 ESLint flat config 형태로 만들지 말 것.** 이유: `eslint-config-next`는 legacy `.eslintrc.json`을 가장 안정적으로 지원하며, Next.js 15도 양식별 호환성 검증을 `.eslintrc.json` 기준으로 권장.
+- **`npm install` 외에 `npm dedupe`, `rm -rf node_modules`, lock 파일 수동 편집 등 우회 시도 금지.** 이유: package.json 변경 + npm install 만으로 정렬되어야 함이 정상 경로. 그래도 안 되면 plasmo peer dep 충돌일 가능성이 크므로 blocked로 보고하라.
 
 ## AC (실행 가능한 검증 커맨드)
 ```bash
+npm install
+npm run build -w @yad/extension
 npm run lint -w @yad/web
 npm run build -w @yad/web
 ```
-- `lint`(next lint) 통과.
-- `build`(next build)가 성공해야 하며, `/report/[videoId]/[ruleVersion]` 라우트가 빌드 산출물에 포함되어야 한다.
+- `npm install`: 의존성 정렬 성공.
+- `npm run build -w @yad/extension`: plasmo 0.90.5 + React 19 환경에서 확장 빌드 성공.
+- `npm run lint -w @yad/web`: 대화형 프롬프트 없이 즉시 실행되어 통과(에러 0).
+- `npm run build -w @yad/web`: `next build` 성공. 이 단계가 통과하면 React 버전 분열이 해소된 것.
