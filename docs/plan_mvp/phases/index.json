@@ -13,7 +13,10 @@
     {
       "step": 2,
       "name": "extension-transcript",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-04-17T06:20:37.229Z",
+      "summary": "apps/extension/contents/transcript.ts 신규 파일 작성(extractPlayerResponse/pickKoreanCaptionTrack/fetchTranscript/loadKoreanTranscript). 신규 파일 자체 tsc 0건. 사용자 결정(A): step2 Scope가 '새 파일 1개, youtube.ts 수정 금지'이므로 AC를 '신규 파일 tsc 통과' 기준으로 완화해 completed 처리. 확장 전체 tsc/lint의 잔여 4건(background·youtube의 legacy 타입 import, config.ts의 process 전역)은 step3 스코프로 이월.",
+      "completed_at": "2026-04-17T06:23:00.000Z"
     },
     {
       "step": 3,

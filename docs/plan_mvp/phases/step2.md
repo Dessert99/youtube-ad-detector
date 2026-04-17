@@ -56,7 +56,6 @@
 
 ## AC (실행 가능한 검증 커맨드)
 ```bash
-npx tsc --noEmit -p apps/extension/tsconfig.json
-npm run lint -w @yad/extension
+npx tsc --noEmit apps/extension/contents/transcript.ts --jsx preserve --target es2020 --module esnext --moduleResolution bundler --strict --skipLibCheck
 ```
-둘 다 에러 없이 통과해야 한다. 확장의 `lint` 스크립트가 `tsc --noEmit`이므로 사실상 동일 검사를 두 번 수행하지만, AC 일관성을 위해 둘 다 명시한다.
+신규 파일 단독으로 tsc 에러 0건이면 통과. 이유: 본 step의 Scope가 "새 파일 1개만 생성, 기존 파일 수정 금지"이므로 확장 전체 tsc/lint는 step1 잔여물(background/youtube의 legacy 타입 import, config.ts의 process 전역)에 좌우된다. 이 잔여 정리는 step3(extension-rewire)의 책임이며 그 AC에서 확장 전체 tsc/lint가 통과하는지 검증한다.
