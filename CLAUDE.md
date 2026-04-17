@@ -13,23 +13,11 @@
 ## 디렉토리 구조
 - `extension/`  크롬 확장 (plasmo)
 - `next/`       보고서 웹 + 포스트-MVP 서버 (Next.js 15)
-- `shared/`     룰·타입·analyze 순수함수 (ESM, file: 프로토콜로 각 앱이 import)
 - `docs/`       PRD·ADR·ARCHITECTURE·plan들
 - `tools/`      harness 오케스트레이터
 
-npm workspaces는 사용하지 않는다. 각 앱은 자체 `node_modules`를 가진다.
-
 
 ## 개발 명령어
-- 확장 개발: `cd extension && npm run dev`
-- 확장 빌드: `cd extension && npm run build`
-- 확장 lint: `cd extension && npm run lint`
-- next 개발: `cd next && npm run dev`
-- next 빌드: `cd next && npm run build`
-- next lint: `cd next && npm run lint`
-- shared 타입체크: `cd shared && npx tsc --noEmit`
-- harness 실행: `npm run harness <plan-dir-name>`
-- 포맷: `npm run format`
 
 
 

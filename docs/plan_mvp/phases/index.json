@@ -1,9 +1,0 @@
-{
-  "project": "youtube-ad-detector",
-  "phase": "mvp",
-  "steps": [
-    { "step": 0, "name": "shared-refactor", "status": "pending" },
-    { "step": 1, "name": "extension-lean-rewrite", "status": "pending" },
-    { "step": 2, "name": "next-report-nest", "status": "pending" }
-  ]
-}
