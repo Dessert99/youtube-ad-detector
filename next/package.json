@@ -1,5 +1,5 @@
 {
-  "name": "@yad/web",
+  "name": "@yad/next",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@yad/shared": "*",
+    "@yad/shared": "file:../shared",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
