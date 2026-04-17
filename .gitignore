@@ -11,6 +11,9 @@ dist/
 # production
 build/
 
+# plasmo build cache
+.plasmo/
+
 # misc
 .DS_Store
 *.pem
