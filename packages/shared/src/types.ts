@@ -1,4 +1,4 @@
-// 확장·서버·보고서 페이지가 공유하는 분석 요청/응답/보고서 타입 정의
+// 확장 단독 분석 모델의 공용 타입: 자막 세그먼트 → 룰 매칭 → 판정 결과까지의 단일 경로를 정의
 
 // 법령 카테고리: 탐지된 표현이 어느 법에 걸릴 가능성이 있는지 분류 (MVP는 식품·의료 중심)
 export type LawCategory =
@@ -25,23 +25,12 @@ export interface Finding {
   explanation: string // 왜 문제 소지가 있는지 한 줄 설명
 }
 
-// 확장이 서버로 보내는 분석 요청: videoId가 필수, DOM 자막은 서버 API 실패 시 폴백용
-export interface AnalyzeRequest {
-  videoId: string
-  fallbackTranscript?: TranscriptSegment[]
-}
+// 2-state 판정: UI는 safe/fraud 두 상태만 노출 (ADR-010)
+export type Verdict = 'safe' | 'fraud'
 
-// 서버가 확장에 돌려주는 분석 결과: 위험도 점수와 함께 보고서 URL 제공
-export interface AnalyzeResponse {
-  videoId: string
-  riskScore: number // 0~100, 카테고리별 가중치 합산
+// analyze()의 최종 산출물: 3-zone 라우팅 후 단일 판정 + 위험도 + 근거 목록
+export interface AnalyzeResult {
+  verdict: Verdict
+  riskScore: number // 0~100
   findings: Finding[]
-  reportUrl: string // /report/{videoId}
-  ruleVersion: string
-  transcriptSource: 'youtube_api' | 'dom_fallback'
-}
-
-// 보고서 페이지가 SSR 시점에 렌더하는 구조: 응답 전체 + 메타를 재사용
-export interface Report extends AnalyzeResponse {
-  generatedAt: string // ISO timestamp
 }
