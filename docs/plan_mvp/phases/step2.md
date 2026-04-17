@@ -1,62 +1,95 @@
-# step2: extension-transcript
+# step 2 — next-report-nest
 
-## 목표
-유튜브 시청 페이지에서 한국어 자막(수동/ASR 모두 허용)을 추출해 `TranscriptSegment[]`로 반환하는 독립 모듈을 확장에 추가한다. content script(`youtube.ts`)는 이 스텝에서 건드리지 않는다.
+`next/app/`의 구 서버 API를 제거하고, 보고서 경로를 `[videoId]` 단일에서 `[videoId]/[ruleVersion]` 중첩으로 이동한다. MVP에서는 메타 정보만 담은 스텁 페이지를 렌더한다.
 
 ## 읽어야 할 파일
-- `docs/plan_mvp/ADR.md` (특히 ADR-004 자막 수집)
-- `docs/plan_mvp/ARCHITECTURE.md` (데이터 흐름)
-- `apps/extension/contents/youtube.ts` (현재 구조 파악용, **수정 금지**)
-- `apps/extension/package.json`, `apps/extension/tsconfig.json`
-- `packages/shared/src/types.ts` (`TranscriptSegment` 타입)
+
+- `docs/plan_mvp/PRD.md`
+- `docs/plan_mvp/ADR.md` (특히 ADR-001, ADR-007)
+- `docs/plan_mvp/ARCHITECTURE.md`
+- `next/app/api/analyze/route.ts` (현 상태 — 삭제 대상)
+- `next/app/report/[videoId]/page.tsx` (현 상태 — 삭제 대상)
+- `next/app/page.tsx` (현 상태 — 안내 문구만 유지)
+- `next/app/layout.tsx` (현 상태 — 수정 없음)
+- `shared/src/index.ts` (step 0 산출물 — `RULE_VERSION` 참조)
+
+## 선행 조건 — `@yad/shared` 동기화
+
+step 0에서 `shared/src/`가 바뀌었다. `file:` 프로토콜의 설치 동작이 환경에 따라 다르므로, 작업 시작 시 반드시 `cd next && npm install`을 한 번 돌려 `@yad/shared`가 최신 상태인지 확정한다.
 
 ## Scope
-새 파일 1개만 생성한다: `apps/extension/contents/transcript.ts`.
-기존 파일은 읽기만 하고 수정하지 않는다.
 
-## 작업
-`apps/extension/contents/transcript.ts`에 다음을 구현하고 export 한다.
+`next/app/**` **만** 수정한다. `next/package.json`, `next/next.config.ts`, `next/tsconfig.json` 등은 건드리지 않는다.
 
-1) **`extractPlayerResponse(): unknown | null`**
-   - `window.ytInitialPlayerResponse`를 먼저 시도.
-   - 없으면 `document.querySelectorAll('script')`를 돌며 텍스트에 `ytInitialPlayerResponse = {` 가 포함된 script를 찾아 JSON 부분만 잘라 `JSON.parse`.
-   - 파싱 실패/미존재 시 `null`.
+### 변경 대상 파일
 
-2) **`pickKoreanCaptionTrack(response: unknown): { baseUrl: string } | null`**
-   - `response.captions.playerCaptionsTracklistRenderer.captionTracks[]`에 접근(옵셔널 체이닝).
-   - `languageCode === 'ko'`인 트랙 중 첫 번째를 선택. `kind === 'asr'`(자동 생성)도 허용한다.
-   - 한국어 트랙이 없으면 `null`. 다른 언어로 폴백하지 않는다.
+1. `next/app/api/analyze/` — 디렉터리 전체 **삭제** (ADR-001, 서버 rule 엔진 제거).
+2. `next/app/report/[videoId]/page.tsx` — **삭제**.
+3. `next/app/report/[videoId]/[ruleVersion]/page.tsx` — **신규 생성** (스텁 SSR).
+4. `next/app/page.tsx` — 안내 문구의 경로 예시를 `/report/{videoId}/{ruleVersion}`로 업데이트.
 
-3) **`fetchTranscript(track: { baseUrl: string }): Promise<TranscriptSegment[]>`**
-   - `track.baseUrl` 끝에 `&fmt=json3`를 붙여 `fetch`.
-   - 응답 JSON의 `events[]`를 순회하며 `{ tStartMs, dDurationMs, segs: [{ utf8 }, ...] }`를 파싱:
-     - `start = tStartMs / 1000`
-     - `end = (tStartMs + (dDurationMs ?? 0)) / 1000`
-     - `text = segs.map(s => s.utf8 ?? '').join('').trim()`
-     - `text`가 빈 문자열이면 스킵.
-   - 네트워크/파싱 실패 시 예외 대신 빈 배열을 반환해도 되고, throw해도 된다. **다만 호출자가 `null`과 구분할 수 있도록 이 함수는 절대 `null`을 반환하지 않는다.**
+### 시그니처·불변식
 
-4) **`loadKoreanTranscript(): Promise<TranscriptSegment[] | null>`**
-   - 위 3개를 조합한 진입점.
-   - player response 없음 / 한국어 트랙 없음 → `null`.
-   - 자막은 있으나 fetch 결과가 빈 배열이면 `null`을 반환(UI 미표시 정책과 일치).
-   - 정상 수집되면 `TranscriptSegment[]`.
+#### `next/app/report/[videoId]/[ruleVersion]/page.tsx` (신규)
 
-## 불변식 (깨면 안 됨)
-- **한국어(`languageCode === 'ko'`) 외 트랙은 선택하지 않는다.** 이유: MVP 범위.
-- **ASR 트랙(`kind: 'asr'`)은 허용한다.** 이유: 한국어 유튜브 대부분이 수동 자막이 없고, rule 매칭은 ASR 오인식에 어느 정도 강건하다.
-- **`TranscriptSegment.start` / `end`는 초 단위(number).** 이유: shared 타입 정의가 초 단위. ms/마이크로초 혼용 시 이후 findings 인용 시점이 어긋난다.
-- **자막 URL은 `ytInitialPlayerResponse`에서 얻은 `baseUrl`만 사용한다.** 이유: ADR-004가 `ytInitialPlayerResponse` 단독 경로로 못박았다.
+```tsx
+export default async function ReportPage({
+  params,
+}: {
+  params: Promise<{ videoId: string; ruleVersion: string }>
+}) {
+  const { videoId, ruleVersion } = await params
+  return (
+    // 메타: videoId, ruleVersion
+    // 본문: "상세 보고서는 추후 제공됩니다" 문구
+  )
+}
+```
+
+**불변식**:
+- Next.js 15 규약: `params`는 Promise. 반드시 `await params`로 언팩 (기존 `[videoId]/page.tsx` 패턴 유지).
+- **findings·자막·법조항 나열 금지** (ADR-007, "메타 정보만 담은 스텁 페이지"). 렌더 대상은 `videoId`, `ruleVersion`, 안내 문구뿐.
+- URL의 `ruleVersion`과 `shared`의 현재 `RULE_VERSION`이 **다르더라도 그대로 렌더**한다 (MVP 결정: 404 로직 없음). 현재 `RULE_VERSION`을 참조할 필요 없음.
+- 저장소·데이터베이스·네트워크 호출 **금지** (MVP는 stateless).
+- 페이지 메타데이터(`export const metadata`)는 선택. 추가 시 `layout.tsx`의 기본값을 덮어쓰지 않게.
+
+#### `next/app/page.tsx`
+
+기존 안내 문구의 `/report/{videoId}` 예시를 `/report/{videoId}/{ruleVersion}`로만 교체. 그 외 변경 금지.
+
+#### 삭제 작업
+
+- `next/app/api/analyze/route.ts` 및 `next/app/api/analyze/` 디렉터리 — `rm -rf` 수준으로 완전 제거. 디렉터리 남기지 말 것.
+- `next/app/api/` 디렉터리가 비면 함께 제거 (빈 디렉터리 유지 금지).
+- `next/app/report/[videoId]/page.tsx` 제거. **단**, `[videoId]/[ruleVersion]/page.tsx`가 생성된 **후**에 삭제해 중간 상태에서도 타입·빌드가 깨지지 않도록 한다.
 
 ## 금지사항
-- **`apps/extension/contents/youtube.ts`를 수정하지 말 것.** 이유: step3의 책임. 이 스텝은 독립 모듈만 만든다. 경계가 섞이면 step3의 변경 범위가 불명확해진다.
-- **`chrome.*` API 사용 금지.** 이유: 이 모듈은 페이지 DOM과 fetch만 다룬다. 메시지 송수신·탭 오픈은 step3 책임.
-- **YouTube Data API·오픈소스 자막 라이브러리·서버 프록시 등 대안 경로로 우회 금지.** 이유: ADR-004가 "확장 단독 + ytInitialPlayerResponse" 이외의 경로를 폐기했다.
-- **타임드텍스트 응답에 fmt 파라미터를 `vtt`/`srv3` 등으로 바꾸지 말 것.** 이유: `json3`는 파싱이 가장 단순하고 본 스텝의 파싱 로직이 이를 전제로 한다.
 
-## AC (실행 가능한 검증 커맨드)
+- `next/package.json`, `next/next.config.ts`, `next/tsconfig.json`, `next/next-env.d.ts` 수정 금지. **이유**: 의존성/설정 변경은 BLOCK #7~#8의 호이스팅·React 19 이슈를 재유발할 수 있다.
+- `next/app/layout.tsx` 수정 금지. **이유**: Scope 외. 전역 HTML 골격은 본 플랜의 변경 대상 아님.
+- 서버 측 rule 엔진·DB·fetch 호출 추가 금지. **이유**: ADR-001은 확장 단독 실행을 결정했고, 서버 경유 구조 복원은 재논의 대상(ADR 재작성).
+- `findings`·자막 본문 렌더 금지. **이유**: ADR-007 "MVP는 메타 정보만 담은 스텁". 상세 렌더는 post-MVP.
+- `next/app/report/[videoId]/[ruleVersion]/` 외의 위치에 새 라우트 생성 금지. **이유**: Scope 외.
+
+## 본 step 이후 일시적으로 깨지는 코드
+
+없음. 본 step은 플랜의 마지막 step이며, 완료 시 `shared`·`extension`·`next`가 모두 새 구조로 정합된 상태가 되어야 한다.
+
+## Acceptance Criteria
+
 ```bash
-npx tsc --noEmit -p apps/extension/tsconfig.json
-npm run lint -w @yad/extension
+cd next && npm install
+cd ../next && npm run lint
+cd ../next && npm run build
+test ! -e next/app/api/analyze
+test ! -e next/app/report/\[videoId\]/page.tsx
+test -f next/app/report/\[videoId\]/\[ruleVersion\]/page.tsx
+grep -Rn "AnalyzeRequest\|AnalyzeResponse\|transcriptSource" next/app && exit 1 || true
+cd .. && cd extension && npm run build
 ```
-둘 다 에러 없이 통과해야 한다. 확장의 `lint` 스크립트가 `tsc --noEmit`이므로 사실상 동일 검사를 두 번 수행하지만, AC 일관성을 위해 둘 다 명시한다.
+
+## AC 직접성 체크리스트
+
+1. **의도 직접 측정?** — `next build`는 "SSR이 실제로 렌더되는가"를 프로덕션 빌드로 측정. 마지막 `extension build`는 "shared 변경 이후 확장도 여전히 번들되는가"를 확인 (플랜 전체 정합성 최종 검증). 프록시 아님.
+2. **Scope와 AC 영역 일치?** — AC 대상은 `next/app/**` + 최종 정합성 검증용 extension build. shared tsc는 step 0에서 이미 통과했으므로 재검증 생략.
+3. **실패 원인이 이 step에서 해결 가능?** — 라우트 이동·삭제·SSR 에러는 모두 Scope 내부 수정으로 해결 가능. 만약 extension build가 여기서 실패하면 step 1의 결과가 shared 변경과 어긋난 것이며, 해당 원인은 별도 step으로 되돌려 해결 (본 step에서 extension 코드 수정 금지).

@@ -2,9 +2,8 @@
   "project": "youtube-ad-detector",
   "phase": "mvp",
   "steps": [
-    { "step": 1, "name": "shared-analyze", "status": "pending" },
-    { "step": 2, "name": "extension-transcript", "status": "pending" },
-    { "step": 3, "name": "extension-rewire", "status": "pending" },
-    { "step": 4, "name": "web-report-stub", "status": "pending" }
+    { "step": 0, "name": "shared-refactor", "status": "pending" },
+    { "step": 1, "name": "extension-lean-rewrite", "status": "pending" },
+    { "step": 2, "name": "next-report-nest", "status": "pending" }
   ]
 }
