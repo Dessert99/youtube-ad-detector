@@ -21,7 +21,10 @@
     {
       "step": 3,
       "name": "extension-rewire",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-04-17T07:03:46.005Z",
+      "summary": "확장 3개 파일 재배선 완료: lib/config.ts는 ANALYZE_PATH 제거 + process 지역 declare로 tsc 통과, contents/youtube.ts는 loadKoreanTranscript→@yad/shared.analyze→2-state renderBadge 흐름(ADR-010,012)으로 재작성, background.ts는 OPEN_REPORT 단일 메시지만 처리. 이전 blocked 사유였던 assets/icon.png가 채워져 plasmo build 성공(youtube 번들에 verdict/riskScore/RULE_VERSION 포함 확인). AC: lint·build 모두 통과.",
+      "completed_at": "2026-04-17T07:04:52.338Z"
     },
     {
       "step": 4,
