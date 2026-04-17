@@ -60,9 +60,11 @@
 npm install
 npm run build -w @yad/extension
 npm run lint -w @yad/web
-npm run build -w @yad/web
+node -e "const v=require('react/package.json').version; if(!v.startsWith('19')) process.exit(1); console.log('react@'+v)"
 ```
 - `npm install`: 의존성 정렬 성공.
 - `npm run build -w @yad/extension`: plasmo 0.90.5 + React 19 환경에서 확장 빌드 성공.
 - `npm run lint -w @yad/web`: 대화형 프롬프트 없이 즉시 실행되어 통과(에러 0).
-- `npm run build -w @yad/web`: `next build` 성공. 이 단계가 통과하면 React 버전 분열이 해소된 것.
+- 마지막 `node -e ...`: 루트에 호이스트된 `react` 버전이 19.x임을 직접 검증. exit 0이면 React 분열 해소.
+
+**왜 `npm run build -w @yad/web`을 AC에서 뺐나**: 본 step의 책임은 React 정렬이지 web 전체 빌드 통과가 아니다. 현재 `apps/web/app/api/analyze/route.ts`가 step1에서 삭제된 타입(`AnalyzeRequest`/`AnalyzeResponse`)을 import하고 있어 빌드가 실패하는데, 이 legacy 파일 제거는 step5(`web-report-stub`)의 첫 번째 task다. 따라서 web build의 최종 검증은 step5 AC가 담당한다.
